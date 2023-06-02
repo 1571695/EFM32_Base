@@ -81,8 +81,6 @@ static void display(void *pParameters){
 }
 
 static void traetement(void *pParameters){
-	//RGBab = (QueueHandle_t) pParameters;
-	//RGB = (QueueHandle_t) pParameters;
 	for(;;){
 
 		Color colores;
@@ -91,16 +89,19 @@ static void traetement(void *pParameters){
 
 		xQueueReceive(RGBab, &recMes, 10);
 
+		//Concatenate values to get 16bit color range.
+
 		colores.R = (((uint16_t) recMes.Rb << 8 | (uint16_t) recMes.Ra)*255)/65535;
 		colores.G = (((uint16_t) recMes.Gb << 8 | (uint16_t) recMes.Ga)*255)/65535;
 		colores.B = (((uint16_t) recMes.Bb << 8 | (uint16_t) recMes.Ba)*255)/65535;
 
-		xQueueSendToBack(RGB, &colores, 10);
+		if(xQueueSendToBack(RGB, &colores, 10) != pdPASS){
+			int queueTestOk = 12;
+		}
 	}
 }
 
 static void semaphFunct(void *pParameters){
-	//RGBab = (QueueHandle_t) pParameters;
 	for(;;){
 		//Using semaphore for controlling the reading of the sensor.
 
@@ -108,15 +109,11 @@ static void semaphFunct(void *pParameters){
 				//Reconocer componente i2c y demás
 				uint8_t i2cAddr = 0x88;
 				BSP_I2C_Init(i2cAddr);	//Reconocer dirección de módulo i2c --> device_addr
-				//uint8_t targetReg = 0;
-				//uint8_t dataReg;
-				bool trueFalse = I2C_Test(); //{	PAIR WITH 82C_TEST;
-				//bool trueFalse = I2C_ReadRegister(targetReg, &dataReg); //{	PAIR WITH 82C_TEST;
+				bool trueFalse = I2C_Test();
 				if(trueFalse == true){
 					//Set RGB Operating modes --> we've to set mode in B2-B0 to GREEN/RED/BlUE 101
 					//Set RGB Data Sensing range to B3 1 to get 10k colors. This implies using the 2 complete registers of each color.
 					//Set 16 bit to B4 in ADC Resolution
-
 					uint8_t regAux = 0x01;
 					uint8_t dataAux = 0x05;
 					I2C_WriteRegister(regAux, dataAux);
@@ -141,23 +138,18 @@ static void semaphFunct(void *pParameters){
 					regAux = 0x0E;
 					I2C_ReadRegister(regAux, &mensaje1.Bb);
 
-					//Concatenate values to get 16bit color range.
 					regAux = 0x0E;
 
-					//AMessage xMessage;
-
-					//xMessage.ucMessageID = Ra;
-
 					if(xQueueSendToBack(RGBab, &mensaje1, 10) != pdPASS){
-						int cosasss = 12;
+						int queueSendOk = 1;
 					}
 
-					TaskParams_t     * datas = (TaskParams_t*) pParameters;
-					const portTickType delay = datas->delay;
-
-					vTaskDelay(delay);
+					vTaskDelay(pdMS_TO_TICKS(500));
 
 
+				} else {
+					printf("Test failed\n");
+					vTaskDelay(500);
 				}
 			}
 
@@ -182,10 +174,10 @@ int main(void)
 
   /* Initialize SLEEP driver, no callbacks are used */
   SLEEP_Init(NULL, NULL);
-#if (configSLEEP_MODE < 3)
-  /* do not let to sleep deeper than define */
-  SLEEP_SleepBlockBegin((SLEEP_EnergyMode_t)(configSLEEP_MODE + 1));
-#endif
+	#if (configSLEEP_MODE < 3)
+	  /* do not let to sleep deeper than define */
+	  SLEEP_SleepBlockBegin((SLEEP_EnergyMode_t)(configSLEEP_MODE + 1));
+	#endif
 
   /* Parameters value for tasks*/
   static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
